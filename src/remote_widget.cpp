@@ -222,35 +222,53 @@ QString root = isLocal ? "/" : QString();
   });
 
   QObject::connect(ui.move, &QAction::triggered, this, [=]() {
-    auto settings = GetSettings();
-    bool driveShared = ui.checkBoxShared->checkState();
-    (driveShared ? settings->setValue("Settings/driveShared", Qt::Checked)
-                 : settings->setValue("Settings/driveShared", Qt::Unchecked));
+      
+      auto settings = GetSettings();
+      bool driveShared = ui.checkBoxShared->checkState();
+      (driveShared ? settings->setValue("Settings/driveShared", Qt::Checked)
+          : settings->setValue("Settings/driveShared", Qt::Unchecked));
 
-    QModelIndex index = ui.tree->selectionModel()->selectedRows().front();
+      const QModelIndexList selectedIndexs = ui.tree->selectionModel()->selectedRows();
 
-    QString path = model->path(index).path();
-    QString pathMsg = isLocal ? QDir::toNativeSeparators(path) : path;
+      if (selectedIndexs.count() > 0) {
+          QModelIndex firstIndex = selectedIndexs.at(0);
+          QString firstPath = model->path(firstIndex).path();
+          QString firstPathMsg = isLocal ? QDir::toNativeSeparators(firstPath) : firstPath;
 
-    QString name = model->path(index.parent()).path() + "/";
-    name = QInputDialog::getText(this, "Move",
-                                 QString("New location for %1").arg(pathMsg),
-                                 QLineEdit::Normal, name);
-    if (!name.isEmpty()) {
-      QProcess process;
-      UseRclonePassword(&process);
-      process.setProgram(GetRclone());
-      process.setArguments(
-          QStringList() << "move" << GetRcloneConf() << GetDriveSharedWithMe()
-                        << GetDefaultRcloneOptionsList() << remote + ":" + path
-                        << remote + ":" + name);
-      process.setProcessChannelMode(QProcess::MergedChannels);
+          QString name = model->path(firstIndex.parent()).path() + "/";
+          name = QInputDialog::getText(this, "Move",
+              QString("Move to New location").arg(firstPathMsg),
+              QLineEdit::Normal, name);
 
-      ProgressDialog progress("Move", "Moving...", pathMsg, &process, this);
-      if (progress.exec() == QDialog::Accepted) {
-        model->refresh(index);
+          if (!name.isEmpty()) {
+              for (int i = 0; i < selectedIndexs.count(); i++) {
+                  QModelIndex currentIndex = selectedIndexs.at(i);
+                  QString currentIndexPath = model->path(currentIndex).path();
+
+                  QProcess process;
+                  UseRclonePassword(&process);
+                  process.setProgram(GetRclone());
+                  process.setArguments(
+                      QStringList() << "move" << GetRcloneConf() << GetDriveSharedWithMe()
+                      << GetDefaultRcloneOptionsList() << remote + ":" + currentIndexPath
+                      << remote + ":" + name);
+                  process.setProcessChannelMode(QProcess::MergedChannels);
+
+                  ProgressDialog progress("Move", "Moving...", currentIndexPath, &process, this);
+                  if (progress.exec() == QDialog::Accepted) {
+                     // model->refresh(currentIndex);
+                  }
+
+                  // qInfo() << currentIndexPath << " move " << ;
+
+                  qInfo() << QStringList() << "move" << GetRcloneConf() << GetDriveSharedWithMe()
+                      << GetDefaultRcloneOptionsList() << remote + ":" + currentIndexPath
+                      << remote + ":" + name;
+              }
+
+              model->refresh(firstIndex);
+          }
       }
-    }
   });
 
   QObject::connect(ui.purge, &QAction::triggered, this, [=]() {

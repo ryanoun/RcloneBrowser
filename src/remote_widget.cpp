@@ -241,6 +241,10 @@ QString root = isLocal ? "/" : QString();
               QLineEdit::Normal, name);
 
           if (!name.isEmpty()) {
+              if (name.right(1) != "/") {
+                  name = name + "/";
+              }
+
               for (int i = 0; i < selectedIndexs.count(); i++) {
                   QModelIndex currentIndex = selectedIndexs.at(i);
                   QString currentIndexPath = model->path(currentIndex).path();
@@ -248,22 +252,26 @@ QString root = isLocal ? "/" : QString();
                   QProcess process;
                   UseRclonePassword(&process);
                   process.setProgram(GetRclone());
-                  process.setArguments(
-                      QStringList() << "move" << GetRcloneConf() << GetDriveSharedWithMe()
-                      << GetDefaultRcloneOptionsList() << remote + ":" + currentIndexPath
-                      << remote + ":" + name);
+
+                  if (model->isFolder(currentIndex)) {
+                      process.setArguments(
+                          QStringList() << "moveto" << GetRcloneConf() << GetDriveSharedWithMe()
+                          << GetDefaultRcloneOptionsList() << remote + ":" + currentIndexPath
+                          << remote + ":" + name + model->path(currentIndex).dirName());
+                  } else {
+                      process.setArguments(
+                          QStringList() << "move" << GetRcloneConf() << GetDriveSharedWithMe()
+                          << GetDefaultRcloneOptionsList() << remote + ":" + currentIndexPath
+                          << remote + ":" + name);
+                  }
+
                   process.setProcessChannelMode(QProcess::MergedChannels);
 
                   ProgressDialog progress("Move", "Moving...", currentIndexPath, &process, this);
+
                   if (progress.exec() == QDialog::Accepted) {
                      // model->refresh(currentIndex);
                   }
-
-                  // qInfo() << currentIndexPath << " move " << ;
-
-                  qInfo() << QStringList() << "move" << GetRcloneConf() << GetDriveSharedWithMe()
-                      << GetDefaultRcloneOptionsList() << remote + ":" + currentIndexPath
-                      << remote + ":" + name;
               }
 
               model->refresh(firstIndex);
